@@ -363,6 +363,15 @@ if (isMobile) {
   document.getElementById('controls-text').innerHTML = '터치 버튼으로 조작 | 목숨 5개';
 }
 
+// Mobile-optimized physics
+const PHYSICS = {
+  speed: isMobile ? 3.5 : 5,
+  jumpForce: isMobile ? -10.5 : -12,
+  gravity: isMobile ? 0.5 : 0.6,
+  accel: isMobile ? 0.25 : 1, // smooth acceleration on mobile
+  decel: isMobile ? 0.2 : 1,  // smooth deceleration on mobile
+};
+
 // ===== LEADERBOARD =====
 const LB_KEY = 'obi-leaderboard-v2';
 let lastSubmittedId = null;
@@ -450,7 +459,7 @@ const player = {
   x:50, y:0, w:30, h:30,
   vx:0, vy:0,
   jumpCount:0, maxJumps:2,
-  speed:5, jumpForce:-12, gravity:0.6,
+  speed:PHYSICS.speed, jumpForce:PHYSICS.jumpForce, gravity:PHYSICS.gravity, currentVx:0,
   grounded:false,
   spawnX:50, spawnY:0,
   eyeBlink:0, squash:1,
@@ -667,6 +676,7 @@ function respawnPlayer() {
   player.y = stage.spawnY;
   player.vx = 0;
   player.vy = 0;
+  player.currentVx = 0;
   player.jumpCount = 0;
   player.grounded = false;
   player.squash = 1;
@@ -750,11 +760,24 @@ function update(dt) {
   const stage = stages[currentStage];
   if (stageTransition>0) stageTransition--;
 
-  // Input (keyboard + touch)
+  // Input (keyboard + touch) with smooth acceleration on mobile
   let moveX = 0;
   if (keys['ArrowLeft']||keys['KeyA']||touch.left) moveX=-1;
   if (keys['ArrowRight']||keys['KeyD']||touch.right) moveX=1;
-  player.vx = moveX * player.speed;
+
+  const targetVx = moveX * player.speed;
+  if (isMobile) {
+    // Smooth acceleration/deceleration for mobile
+    if (moveX !== 0) {
+      player.currentVx += (targetVx - player.currentVx) * PHYSICS.accel;
+    } else {
+      player.currentVx *= (1 - PHYSICS.decel);
+      if (Math.abs(player.currentVx) < 0.1) player.currentVx = 0;
+    }
+    player.vx = player.currentVx;
+  } else {
+    player.vx = targetVx;
+  }
 
   player.vy += player.gravity;
   if (player.vy>15) player.vy=15;
